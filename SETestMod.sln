@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34616.47
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SETestMod", "SETestMod\SETestMod.csproj", "{EB4EA8D6-55C4-487E-9094-CD28666EFC79}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EB4EA8D6-55C4-487E-9094-CD28666EFC79}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{EB4EA8D6-55C4-487E-9094-CD28666EFC79}.Debug|x64.ActiveCfg = Debug|x64
+		{EB4EA8D6-55C4-487E-9094-CD28666EFC79}.Debug|x64.Build.0 = Debug|x64
+		{EB4EA8D6-55C4-487E-9094-CD28666EFC79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB4EA8D6-55C4-487E-9094-CD28666EFC79}.Release|x64.ActiveCfg = Release|x64
+		{EB4EA8D6-55C4-487E-9094-CD28666EFC79}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F593FD8A-120A-41A9-9780-456B9DDCE336}
+	EndGlobalSection
+EndGlobal

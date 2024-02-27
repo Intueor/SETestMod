@@ -1,0 +1,57 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Optimize>True</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Optimize>True</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Sandbox.Common">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\Sandbox.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Sandbox.Game">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\Sandbox.Game.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SpaceEngineers.Game">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\SpaceEngineers.Game.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SpaceEngineers.ObjectBuilders">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\SpaceEngineers.ObjectBuilders.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VRage">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\VRage.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VRage.Game">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\VRage.Game.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VRage.Library">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\VRage.Library.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VRage.Math">
+      <HintPath>E:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64\VRage.Math.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="Call .\SendToStorage.bat" />
+  </Target>
+
+</Project>
