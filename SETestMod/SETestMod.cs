@@ -23,112 +23,112 @@ using VRageMath;
 using VRage;
 using VRage.ModAPI;
 using VRage.Utils;
+using VRage.Game.ModAPI;
 
-namespace SETest.Mod
+namespace SETestMod
 {
-    [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
-    public class Mod : MySessionComponentBase
+    // Класс общих данных мода.
+    public class ModData
     {
-        private static readonly ushort PACKET_REQUEST = 14038;
-        private static bool bInit = false;
-        private static bool bIsServer;
-        private static readonly Encoding encode = Encoding.Unicode;
-        public static void Init()
+        public const ushort NET_ID = 14038; // Идентификатор сообщений этого мода.
+        public static readonly Encoding encode = Encoding.Unicode; // Кодировка.
+        public const string strModName = "SETestMod"; // Имя мода.
+        public const string strLogPref = strModName + " => "; // Префикс для логирования.
+        //
+        private static bool bInit = false; // Признак инициализированного мода.
+        private static bool bIsServer = true; // Признак выполнения кода на сервере.
+
+        // Свойство инициализированности.
+        public static bool Initialized { get { return bInit; } set { bInit = value; } }
+
+        // Свойство выполнения на сервере.
+        public static bool IsServer { get { return bIsServer; } set { bIsServer = value; } }
+    }
+
+    // Класс сессии для мода.
+    [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
+    public class ModSession : MySessionComponentBase
+    {
+        // Подключение инициализации сессии для мода до старта (на клиенте и сервере).
+        public override void BeforeStart()
         {
             try
             {
-                MyLog.Default.WriteLineAndConsole("SETestMod: Initialized.");
-                bInit = true;
-                bIsServer = MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE;
-
-                MyAPIGateway.Utilities.MessageEntered += EnteredMessage;
-                
-                if (bIsServer)
+                MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(ModData.NET_ID, ReceivedMessage); // Регистрация обработчика сообщений.
+                ModData.IsServer = MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE;
+                if (!ModData.IsServer)
                 {
-                    MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(PACKET_REQUEST, ReceivedRequest);
+                    MyAPIGateway.Utilities.MessageEntered += EnteredMessage; // Добавление делегата обработки введённых сообщений.
                 }
-                else
-                {
-                    RequestMessages();
-                }
+                ModData.Initialized = true; // Так как до сих пор всё в порядке - признак инициализированности включён.
+                MyLog.Default.WriteLineAndConsole(ModData.strLogPref + "Initialized.");
             }
             catch (Exception ex)
             {
-                MyLog.Default.WriteLineAndConsole($"SETestMod: Failed to init! {ex}");
+                MyLog.Default.WriteLineAndConsole(ModData.strLogPref + $"Failed to init! {ex}");
             }
         }
+
+        // Подключение выгрузки данных сессии для мода (на клиенте и сервере).
         protected override void UnloadData()
         {
             try
             {
-                MyAPIGateway.Utilities.MessageEntered -= EnteredMessage;
-                MyAPIGateway.Multiplayer?.UnregisterSecureMessageHandler(PACKET_REQUEST, ReceivedRequest);
+                MyAPIGateway.Multiplayer?.UnregisterSecureMessageHandler(ModData.NET_ID, ReceivedMessage); // Удаление регистрации сообщений.
+                if (!ModData.IsServer)
+                {
+                    MyAPIGateway.Utilities.MessageEntered -= EnteredMessage; // Удаление делегата обработки введённых сообщений.
+                }
+                ModData.Initialized = false; // Так как до сих пор всё в порядке - признак инициализированности выключен.
+                MyLog.Default.WriteLineAndConsole(ModData.strLogPref + "Unloaded.");
             }
             catch (Exception ex)
             {
-                MyLog.Default.WriteLineAndConsole($"SETestMod: Failed to unregister message handler! {ex}");
+                MyLog.Default.WriteLineAndConsole(ModData.strLogPref + $"Failed to unload data! {ex}");
             }
-            MyLog.Default.WriteLineAndConsole($"SETestMod: Unloaded.");
         }
-        public static void EnteredMessage(string message, ref bool visible)
+
+        // Делегат обработки введённых сообщений (на клиенте).
+        public static void EnteredMessage(string strMsg, ref bool visible)
         {
             try
             {
-                if (!bInit)
-                    return;
-
-                if (message.Equals("/ch", StringComparison.InvariantCultureIgnoreCase))
+                if (!ModData.Initialized) return; // Если ещё не инициализировано - выход из обработчика.
+                // Тестовая проверка ввода пользователя.
+                if (strMsg.StartsWith("/tm ", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    visible = false;
-                    MyAPIGateway.Utilities.ShowMissionScreen("SETestMod", "TEST", "", "", null, "CLOSE");
+                    visible = false; // Не показывать в чат запрос пользователя.
+                    byte[] btMsg = ModData.encode.GetBytes(strMsg.Substring(4));
+                    MyAPIGateway.Multiplayer.SendMessageToServer(ModData.NET_ID, btMsg, true);
                 }
             }
             catch (Exception ex)
             {
-                MyLog.Default.WriteLineAndConsole($"SETestMod: Error in message receiving! {ex}");
+                MyLog.Default.WriteLineAndConsole(ModData.strLogPref + $"Error in message processing! {ex}");
             }
         }
-        public static void RequestMessages()
-        {
-            try
-            {
-                if (bIsServer) return;
 
-                byte[] bytes = encode.GetBytes(MyAPIGateway.Multiplayer.MyId.ToString());
-                MyAPIGateway.Multiplayer.SendMessageToServer(PACKET_REQUEST, bytes, true);
-            }
-            catch (Exception ex)
-            {
-                MyLog.Default.WriteLineAndConsole($"SETestMod: Error in message sending! {ex}");
-            }
-        }
-        public static void ReceivedRequest(ushort handlerId, byte[] messageSentBytes, ulong senderPlayerId, bool isArrivedFromServer)
+        // Обработчик сетевых сообщений (на клиенте и сервере).
+        public static void ReceivedMessage(ushort handlerId, byte[] messageSentBytes, ulong senderPlayerId, bool isArrivedFromServer)
         {
             try
             {
-                if (!bIsServer) return;
-                string data = encode.GetString(messageSentBytes);
-                MyLog.Default.WriteLineAndConsole($"SETestMod: Got message: {data}");
-            }
-            catch (Exception ex)
-            {
-                MyLog.Default.WriteLineAndConsole($"SETestMod: Error in receiving request! {ex}");
-            }
-        }
-        public override void UpdateAfterSimulation()
-        {
-            try
-            {
-                if (!bInit)
+                string strMsg = ModData.encode.GetString(messageSentBytes);
+                if (ModData.IsServer) // На сервере - ответ о полученном сообщении обратно клиенту.
                 {
-                    if (MyAPIGateway.Session == null)
-                        return;
-                    Init();
+                    string strResponse = $"User ID={senderPlayerId} sent [{strMsg}] to the server.";
+                    MyLog.Default.WriteLineAndConsole(ModData.strLogPref + strResponse);
+                    byte[] btResponse = ModData.encode.GetBytes(strResponse);
+                    MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_ID, btResponse, senderPlayerId, true);
+                }
+                else // На клиенте - вывод сообщения от сервера.
+                {
+                    MyAPIGateway.Utilities.ShowMessage(ModData.strModName, $"Got message: `{strMsg}`");
                 }
             }
             catch (Exception ex)
             {
-                MyLog.Default.WriteLineAndConsole($"SETestMod: Failed to update after simulation! {ex}");
+                MyLog.Default.WriteLineAndConsole(ModData.strLogPref + $"Error in receiving request! {ex}");
             }
         }
     }
