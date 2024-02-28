@@ -34,6 +34,7 @@ namespace SETestMod
         public static readonly Encoding encode = Encoding.Unicode; // Кодировка.
         public const string strModName = "SETestMod"; // Имя мода.
         public const string strLogPref = strModName + " => "; // Префикс для логирования.
+        public const string strError = "Error => "; // Префикс сообщения об ошибке.
         //
         private static bool bInit = false; // Признак инициализированного мода.
         private static bool bIsServer = true; // Признак выполнения кода на сервере.
@@ -49,6 +50,9 @@ namespace SETestMod
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
     public class ModSession : MySessionComponentBase
     {
+        // Строки команд.
+        private const string strCmdTest = "test"; // Команда тестирования.
+
         // Подключение инициализации сессии для мода до старта (на клиенте и сервере).
         public override void BeforeStart()
         {
@@ -95,11 +99,16 @@ namespace SETestMod
             {
                 if (!ModData.Initialized) return; // Если ещё не инициализировано - выход из обработчика.
                 // Тестовая проверка ввода пользователя.
-                if (strMsg.StartsWith("/tm ", StringComparison.InvariantCultureIgnoreCase))
+                if (strMsg.StartsWith("/tm "))
                 {
                     visible = false; // Не показывать в чат запрос пользователя.
                     byte[] btMsg = ModData.encode.GetBytes(strMsg.Substring(4));
                     MyAPIGateway.Multiplayer.SendMessageToServer(ModData.NET_ID, btMsg, true);
+                }
+                else if(strMsg == "/tm") // Показ помощи.
+                {
+                    visible = false; // Не показывать в чат запрос пользователя.
+                    /* Вывод помощи на экран. */
                 }
             }
             catch (Exception ex)
@@ -118,12 +127,22 @@ namespace SETestMod
                 {
                     string strResponse = $"User ID={senderPlayerId} sent [{strMsg}] to the server.";
                     MyLog.Default.WriteLineAndConsole(ModData.strLogPref + strResponse);
-                    byte[] btResponse = ModData.encode.GetBytes(strResponse);
-                    MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_ID, btResponse, senderPlayerId, true);
+                    var strCmd = strMsg.Split(' ').FirstOrDefault(); // :( Странно ругается компилятор в игре.
+                    switch (strCmd)
+                    {
+                        case strCmdTest:
+                            byte[] btTestAccept = ModData.encode.GetBytes("Start testing.");
+                            MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_ID, btTestAccept, senderPlayerId, true);
+                            break;
+                        default:
+                            byte[] btError = ModData.encode.GetBytes(ModData.strError + "unknown command.");
+                            MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_ID, btError, senderPlayerId, true);
+                            break;
+                    }
                 }
                 else // На клиенте - вывод сообщения от сервера.
                 {
-                    MyAPIGateway.Utilities.ShowMessage(ModData.strModName, $"Got message: `{strMsg}`");
+                    MyAPIGateway.Utilities.ShowMessage(ModData.strModName, strMsg);
                 }
             }
             catch (Exception ex)
