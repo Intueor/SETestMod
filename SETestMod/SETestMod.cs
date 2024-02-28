@@ -24,13 +24,17 @@ using VRage;
 using VRage.ModAPI;
 using VRage.Utils;
 using VRage.Game.ModAPI;
+using System.Security.Cryptography.X509Certificates;
+using VRage.ObjectBuilders;
+using VRage.ObjectBuilders.Private;
 
 namespace SETestMod
 {
     // Класс общих данных мода.
-    public class ModData
+    public static class ModData
     {
-        public const ushort NET_ID = 14038; // Идентификатор сообщений этого мода.
+        public const ushort NET_MSG_ID = 14038; // Идентификатор сообщений этого мода.
+        // public const ushort NET_CMD_ID = 14039; // Идентификатор команд этого мода.
         public static readonly Encoding encode = Encoding.Unicode; // Кодировка.
         public const string strModName = "SETestMod"; // Имя мода.
         public const string strLogPref = strModName + " => "; // Префикс для логирования.
@@ -46,19 +50,31 @@ namespace SETestMod
         public static bool IsServer { get { return bIsServer; } set { bIsServer = value; } }
     }
 
+    // Класс утилит.
+    public static class ModUtilites
+    {
+        // Создание и синхронизация сущностей.
+        public static void CreateAndSyncEntities(this List<MyObjectBuilder_EntityBase> entities)
+        {
+            MyAPIGateway.Entities.RemapObjectBuilderCollection(entities);
+            entities.ForEach(item => MyAPIGateway.Entities.CreateFromObjectBuilderAndAdd(item));
+            MyAPIGateway.Multiplayer.SendEntitiesCreated(entities);
+        }
+    }
+
     // Класс сессии для мода.
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
     public class ModSession : MySessionComponentBase
     {
         // Строки команд.
-        private const string strCmdTest = "test"; // Команда тестирования.
+        private const string strCmdMeteor = "meteor"; // Команда запуска метеора.
 
         // Подключение инициализации сессии для мода до старта (на клиенте и сервере).
         public override void BeforeStart()
         {
             try
             {
-                MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(ModData.NET_ID, ReceivedMessage); // Регистрация обработчика сообщений.
+                MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(ModData.NET_MSG_ID, ReceivedMessage); // Регистрация обработчика сообщений.
                 ModData.IsServer = MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE;
                 if (!ModData.IsServer)
                 {
@@ -78,7 +94,7 @@ namespace SETestMod
         {
             try
             {
-                MyAPIGateway.Multiplayer?.UnregisterSecureMessageHandler(ModData.NET_ID, ReceivedMessage); // Удаление регистрации сообщений.
+                MyAPIGateway.Multiplayer?.UnregisterSecureMessageHandler(ModData.NET_MSG_ID, ReceivedMessage); // Удаление регистрации сообщений.
                 if (!ModData.IsServer)
                 {
                     MyAPIGateway.Utilities.MessageEntered -= EnteredMessage; // Удаление делегата обработки введённых сообщений.
@@ -103,9 +119,9 @@ namespace SETestMod
                 {
                     visible = false; // Не показывать в чат запрос пользователя.
                     byte[] btMsg = ModData.encode.GetBytes(strMsg.Substring(4));
-                    MyAPIGateway.Multiplayer.SendMessageToServer(ModData.NET_ID, btMsg, true);
+                    MyAPIGateway.Multiplayer.SendMessageToServer(ModData.NET_MSG_ID, btMsg, true);
                 }
-                else if(strMsg == "/tm") // Показ помощи.
+                else if (strMsg == "/tm") // Показ помощи.
                 {
                     visible = false; // Не показывать в чат запрос пользователя.
                     /* Вывод помощи на экран. */
@@ -123,20 +139,62 @@ namespace SETestMod
             try
             {
                 string strMsg = ModData.encode.GetString(messageSentBytes);
-                if (ModData.IsServer) // На сервере - ответ о полученном сообщении обратно клиенту.
+                if (ModData.IsServer) // На сервере - ответ о полученном сообщении обратно клиенту и выполнение конманд.
                 {
                     string strResponse = $"User ID={senderPlayerId} sent [{strMsg}] to the server.";
                     MyLog.Default.WriteLineAndConsole(ModData.strLogPref + strResponse);
-                    var strCmd = strMsg.Split(' ').FirstOrDefault(); // :( Странно ругается компилятор в игре.
+                    var strCmd = strMsg.Split(' ').FirstOrDefault(); // :(
                     switch (strCmd)
                     {
-                        case strCmdTest:
-                            byte[] btTestAccept = ModData.encode.GetBytes("Start testing.");
-                            MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_ID, btTestAccept, senderPlayerId, true);
+                        case strCmdMeteor:
+                            byte[] btTestAccept = ModData.encode.GetBytes("Spawning meteor!");
+                            MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_MSG_ID, btTestAccept, senderPlayerId, true);
+                            List<IMyPlayer> players = new List<IMyPlayer>(); // :(
+                            MyAPIGateway.Multiplayer.Players.GetPlayers(players, l => (l.SteamUserId == senderPlayerId));
+                            if (players.Count == 1)
+                            {
+                                IMyPlayer player = players.First();
+                                MatrixD worldMatrix;
+                                if (player.Controller.ControlledEntity.Entity.Parent == null)
+                                {
+                                    worldMatrix = player.Controller.ControlledEntity.GetHeadMatrix(true, true, false);
+                                    worldMatrix.Translation += worldMatrix.Forward * 2.5f;
+                                }
+                                else
+                                {
+                                    worldMatrix = player.Controller.ControlledEntity.Entity.WorldMatrix;
+                                    worldMatrix.Translation = worldMatrix.Translation + worldMatrix.Forward * 2.5f + worldMatrix.Up * 0.5f;
+                                }
+                                var meteorBuilder = new MyObjectBuilder_Meteor
+                                {
+                                    Item = new MyObjectBuilder_InventoryItem
+                                    {
+                                        Amount = 1000,
+                                        PhysicalContent = new MyObjectBuilder_Ore { SubtypeName = "Stone" }
+                                    },
+                                    PersistentFlags = MyPersistentEntityFlags2.InScene,
+                                    PositionAndOrientation = new MyPositionAndOrientation
+                                    {
+                                        Position = worldMatrix.Translation,
+                                        Forward = (Vector3)worldMatrix.Forward,
+                                        Up = (Vector3)worldMatrix.Up,
+                                    },
+                                    LinearVelocity = worldMatrix.Forward * 15000,
+                                    Integrity = 100,
+                                };
+                                List<MyObjectBuilder_EntityBase> entities = new List<MyObjectBuilder_EntityBase>(); // :(
+                                entities.Add(meteorBuilder);
+                                ModUtilites.CreateAndSyncEntities(entities);
+                            }
+                            else
+                            {
+                                byte[] btTestError = ModData.encode.GetBytes(ModData.strError + "Player SteamID error.");
+                                MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_MSG_ID, btTestError, senderPlayerId, true);
+                            }
                             break;
                         default:
                             byte[] btError = ModData.encode.GetBytes(ModData.strError + "unknown command.");
-                            MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_ID, btError, senderPlayerId, true);
+                            MyAPIGateway.Multiplayer.SendMessageTo(ModData.NET_MSG_ID, btError, senderPlayerId, true);
                             break;
                     }
                 }
